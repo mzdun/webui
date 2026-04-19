@@ -44,7 +44,7 @@ namespace webui {
             // initializes the reference, This
             // is to avoid creating copies.
             event(webui::window& window_obj, webui_event_t c_e) : webui_event_t(c_e) {
-                reinterpret_cast<webui_event_t*>(this)->window = window_obj.webui_window;
+                this->window = window_obj.webui_window;
             }
 
             public:
