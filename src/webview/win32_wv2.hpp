@@ -49,6 +49,11 @@ void _webui_win32_wv2_set_dimensions(_webui_win32_wv2_handle handle, int x, int 
 void _webui_win32_wv2_get_dimensions(_webui_win32_wv2_handle handle, int* x, int* y, int* width, int* height);
 bool _webui_win32_wv2_create_environment(_webui_win32_wv2_handle handle, wchar_t* cacheFolder);
 void* _webui_win32_wv2_get_controller(_webui_win32_wv2_handle handle);
+void _webui_win32_wv2_set_devtools_flag(_webui_win32_wv2_handle handle, bool devtools);
+bool _webui_win32_wv2_get_devtools_flag(_webui_win32_wv2_handle handle);
+void _webui_win32_wv2_set_devtools_available(_webui_win32_wv2_handle handle, bool override, bool enable);
+void _webui_win32_wv2_get_devtools_available(_webui_win32_wv2_handle handle, bool* override, bool* enable);
+void _webui_win32_wv2_enable_devtools(_webui_win32_wv2_handle handle, bool override, bool enable);
 
 #ifdef __cplusplus
 }

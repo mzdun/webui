@@ -2009,6 +2009,32 @@ bool webui_show_wv(size_t window, const char* content) {
     return _webui_show(win, NULL, content, Webview);
 }
 
+void webui_set_wv_devtools_available(size_t window, bool available) {
+
+    #ifdef WEBUI_LOG
+    _webui_log_info("[User] webui_set_wv_devtools_available([%zu], [%d])\n", window, available);
+    #endif
+
+    // Initialization
+    _webui_init();
+
+    // Dereference
+    if (_webui_mutex_app_is_exit_now(WEBUI_MUTEX_GET_STATUS) || _webui.wins[window] == NULL)
+        return;
+    _webui_window_t* win = _webui.wins[window];
+
+    if (win->webView) {
+        // WebView
+        #ifdef _WIN32
+        if (win->webView->cpp_handle) {
+            _webui_win32_wv2_set_devtools_available(win->webView->cpp_handle, true, available);
+            _webui_win32_wv2_set_devtools_flag(win->webView->cpp_handle, true);
+            _webui_webview_update(win);
+        }
+        #endif
+    }
+}
+
 bool webui_show_browser(size_t window, const char* content, size_t browser) {
 
     #ifdef WEBUI_LOG
@@ -12600,6 +12626,15 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
         return false;
     };
 
+    static void _webui_wv_enable_devtools(_webui_wv_win32_t* webView, bool override, bool enable) {
+        #ifdef WEBUI_LOG
+        _webui_log_debug("[Core]\t\t_webui_wv_enable_devtools([%d, %d])\n", override, enable);
+        #endif
+        if (webView && webView->cpp_handle) {
+            _webui_win32_wv2_enable_devtools(webView->cpp_handle, override, enable);
+        }
+    };
+
     static void _webui_wv_free(_webui_wv_win32_t* webView) {
         #ifdef WEBUI_LOG
         _webui_log_debug("[Core]\t\t_webui_wv_free()\n");
@@ -12799,6 +12834,13 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
                                 if (url) {
                                     _webui_wv_navigate(win->webView, url);
                                 }
+                            }
+                            // DevTool override
+                            if (_webui_win32_wv2_get_devtools_flag(win->webView->cpp_handle)) {
+                                bool override, enable;
+                                _webui_win32_wv2_set_devtools_flag(win->webView->cpp_handle, false);
+                                _webui_win32_wv2_get_devtools_available(win->webView->cpp_handle, &override, &enable);
+                                _webui_wv_enable_devtools(win->webView, override, enable);
                             }
                         }
                     }

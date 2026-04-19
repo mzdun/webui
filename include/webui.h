@@ -390,6 +390,16 @@ WEBUI_EXPORT const char* webui_start_server(size_t window, const char* content);
 WEBUI_EXPORT bool webui_show_wv(size_t window, const char* content);
 
 /**
+ * @brief Force WebView devtools availability, overriding the WEBUI_LOG flag.
+ *
+ * @param window The window number
+ * @param available The DevTools availability `true` or `false`
+ *
+ * @example if (optForceDevTools) webui_set_wv_devtools_available(myWindow, true);
+ */
+WEBUI_EXPORT void webui_set_wv_devtools_available(size_t window, bool available);
+
+/**
  * @brief Set the window in Kiosk mode (Full screen).
  *
  * @param window The window number

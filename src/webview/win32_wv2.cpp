@@ -14,6 +14,7 @@
 #include "win32_wv2.hpp"
 #include "WebView2.h"
 #include <cstdio>
+#include <optional>
 
 #ifdef _MSC_VER
     // MSVC: Use Windows Runtime Library
@@ -58,16 +59,35 @@ public:
     ComPtr<ICoreWebView2> webviewWindow;
     HWND hwnd;
     wchar_t* url;
-    bool navigate, size, position, stop;
+    bool navigate, size, position, stop, devtools;
     int width, height, x, y;
+    std::optional<bool> enable_devtools{};
 
     WebView2Instance()
         : hwnd(nullptr), url(nullptr), navigate(false), size(false)
-        , position(false), stop(false), width(800), height(600), x(0), y(0) {}
+        , position(false), stop(false), devtools(false), width(800), height(600)
+        , x(0), y(0) {}
 
     ~WebView2Instance() {
         if (url) free(url);
     }
+
+    #ifdef _WIN32
+    static BOOL devToolsEnabled(bool override, bool enable) noexcept {
+        if (override) {
+            return enable ? TRUE : FALSE;
+        }
+        #ifdef WEBUI_LOG
+        return TRUE;
+        #else
+        return FALSE;
+        #endif
+    }
+
+    BOOL devToolsEnabled() const noexcept {
+        return devToolsEnabled(!!enable_devtools, enable_devtools.value_or(false));
+    }
+    #endif
 };
 
 #ifdef _MSC_VER
@@ -149,11 +169,7 @@ public:
                     settings->put_IsScriptEnabled(TRUE);
                     settings->put_AreDefaultScriptDialogsEnabled(TRUE);
                     settings->put_IsWebMessageEnabled(TRUE);
-                    #ifdef WEBUI_LOG
-                    settings->put_AreDevToolsEnabled(TRUE);
-                    #else
-                    settings->put_AreDevToolsEnabled(FALSE);
-                    #endif
+                    settings->put_AreDevToolsEnabled(instance->devToolsEnabled());
                 }
 
                 RECT bounds = {0, 0, instance->width, instance->height};
@@ -209,11 +225,7 @@ public:
                     settings->put_IsScriptEnabled(TRUE);
                     settings->put_AreDefaultScriptDialogsEnabled(TRUE);
                     settings->put_IsWebMessageEnabled(TRUE);
-                    #ifdef WEBUI_LOG
-                    settings->put_AreDevToolsEnabled(TRUE);
-                    #else
-                    settings->put_AreDevToolsEnabled(FALSE);
-                    #endif
+                    settings->put_AreDevToolsEnabled(instance->devToolsEnabled());
                     settings->Release();
                 }
 
@@ -486,6 +498,45 @@ void* _webui_win32_wv2_get_controller(_webui_win32_wv2_handle handle) {
     return handle ? static_cast<WebView2Instance*>(handle)->webviewController.Get() : nullptr;
 }
 
+void _webui_win32_wv2_set_devtools_flag(_webui_win32_wv2_handle handle, bool devtools) {
+    if (handle) static_cast<WebView2Instance*>(handle)->devtools = devtools;
+}
+
+bool _webui_win32_wv2_get_devtools_flag(_webui_win32_wv2_handle handle) {
+    return handle ? static_cast<WebView2Instance*>(handle)->devtools : false;
+}
+
+void _webui_win32_wv2_set_devtools_available(_webui_win32_wv2_handle handle, bool override, bool enable) {
+    if (!handle) return;
+    static_cast<WebView2Instance*>(handle)->enable_devtools =
+        override ? std::optional<bool>{enable} : std::optional<bool>{};
+}
+
+void _webui_win32_wv2_get_devtools_available(_webui_win32_wv2_handle handle, bool* override, bool* enable) {
+    if (!handle) return;
+    WebView2Instance* instance = static_cast<WebView2Instance*>(handle);
+    if (override) *override = !!instance->enable_devtools;
+    if (enable) *enable = instance->enable_devtools.value_or(false);
+}
+
+void _webui_win32_wv2_enable_devtools(_webui_win32_wv2_handle handle, bool override, bool enable) {
+    if (!handle) return;
+    auto wvWindow = static_cast<WebView2Instance*>(handle)->webviewWindow;
+    if (!wvWindow) return;
+
+#ifdef _MSC_VER
+    ComPtr<ICoreWebView2Settings> settings;
+    if (SUCCEEDED(wvWindow->get_Settings(&settings))) {
+        settings->put_AreDevToolsEnabled(WebView2Instance::devToolsEnabled(override, enable));
+    }
+#else
+    ICoreWebView2Settings* settings = nullptr;
+    if (SUCCEEDED(wvWindow->get_Settings(&settings)) && settings) {
+        settings->put_AreDevToolsEnabled(WebView2Instance::devToolsEnabled(override, enable));
+        settings->Release();
+    }
+#endif
+}
 }
 
 #endif

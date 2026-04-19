@@ -481,7 +481,12 @@ namespace webui {
         void set_close_handler_wv(bool (*close_handler)(size_t window)) const {
             webui_set_close_handler_wv(webui_window, close_handler);
         }
-    };
+
+        // Force WebView devtools availability, overriding the WEBUI_LOG flag.
+        void set_wv_devtools_available(bool available) const {
+			webui_set_wv_devtools_available(webui_window, available);
+		}
+	};
 
     // ------ Namespace members `webui::xxx()` ------
 
