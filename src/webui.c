@@ -8872,6 +8872,11 @@ static const char* _webui_get_local_ip(void) {
     #endif
 }
 
+typedef struct owning_str_t {
+	char* ptr;
+	int owned;
+} owning_ptr_t;
+
 static bool _webui_show_window(_webui_window_t* win, struct mg_connection* client, const char* content, int type, size_t browser) {
 
     #ifdef WEBUI_LOG
@@ -9029,7 +9034,7 @@ static bool _webui_show_window(_webui_window_t* win, struct mg_connection* clien
     WEBUI_SN_PRINTF_DYN(win->url, 32, WEBUI_HTTP_PROTOCOL "localhost:%zu", win->server_port);
 
     // Generate the window URL
-    char* window_url = NULL;
+    owning_ptr_t window_url = { .ptr = NULL, .owned = 1};
     if (type == WEBUI_SHOW_HTML) {
 
         const char* user_html = content;
@@ -9040,8 +9045,8 @@ static bool _webui_show_window(_webui_window_t* win, struct mg_connection* clien
 
         // Set window URL
         size_t len = _webui_strlen(win->url);
-        window_url = (char*)_webui_malloc(len);
-        WEBUI_STR_COPY_DYN(window_url, len, win->url);
+        window_url.ptr = (char*)_webui_malloc(len);
+        WEBUI_STR_COPY_DYN(window_url.ptr, len, win->url);
     }
     else if (type == WEBUI_SHOW_URL) {
 
@@ -9052,14 +9057,16 @@ static bool _webui_show_window(_webui_window_t* win, struct mg_connection* clien
         // keep server routing state instead of switching to embedded HTML mode.
         if (keep_user_index_file) {
             win->is_embedded_html = false;
-            window_url = (char*)user_url;
+            window_url.ptr = (char*)user_url;
+            window_url.owned = 0;
         } else {
             win->is_embedded_html = true;
             size_t bf_len = (64 + _webui_strlen(user_url));
             char* refresh = (char*)_webui_malloc(bf_len);
             WEBUI_SN_PRINTF_DYN(refresh, bf_len, "<meta http-equiv=\"refresh\" content=\"0;url=%s\">", user_url);
             win->html = refresh;
-            window_url = (char*)user_url;
+            window_url.ptr = (char*)user_url;
+            window_url.owned = 0;
         }
     }
     else if (type == WEBUI_SHOW_FOLDER) {
@@ -9071,7 +9078,8 @@ static bool _webui_show_window(_webui_window_t* win, struct mg_connection* clien
         win->allow_index_fallback = true;
 
         // Set window URL
-        window_url = win->url;
+        window_url.ptr = win->url;
+        window_url.owned = 0;
     }
     else {
 
@@ -9088,7 +9096,7 @@ static bool _webui_show_window(_webui_window_t* win, struct mg_connection* clien
             win->server_port, win->user_index_file_encoded);
 
         // Set window URL
-        window_url = url_encoded;
+        window_url.ptr = url_encoded;
     }
 
     // Run the window
@@ -9173,7 +9181,8 @@ static bool _webui_show_window(_webui_window_t* win, struct mg_connection* clien
             }
         }
 
-        _webui_free_mem((void*)window_url);
+        if (window_url.owned)
+            _webui_free_mem((void*)window_url.ptr);
         if (browser != NoBrowser) {
             if (!runWebView && !runBrowser) {
                 // Browser and WebView both failed
@@ -9221,19 +9230,20 @@ static bool _webui_show_window(_webui_window_t* win, struct mg_connection* clien
             // Update single client
             _webui_send_client(
                 win, client, 0, WEBUI_CMD_NAVIGATION, 
-                (const char*)window_url, _webui_strlen(window_url), false
+                (const char*)window_url.ptr, _webui_strlen(window_url.ptr), false
             );
         }
         else {
             // Update all clients
             _webui_send_all(
                 win, 0, WEBUI_CMD_NAVIGATION, 
-                (const char*)window_url, _webui_strlen(window_url)
+                (const char*)window_url.ptr, _webui_strlen(window_url.ptr)
             );
         }
 
         // Free
-        _webui_free_mem((void*)window_url);
+        if (window_url.owned)
+            _webui_free_mem((void*)window_url.ptr);
     }
 
     // Wait for window connection & token validation
